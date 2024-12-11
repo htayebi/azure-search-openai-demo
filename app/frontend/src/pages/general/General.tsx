@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from "react";
-import { Panel, DefaultButton } from "@fluentui/react";
+import { Panel, DefaultButton, Spinner } from "@fluentui/react";
 import { Settings } from "../../components/Settings/Settings";
 import { useMsal } from "@azure/msal-react";
 import { useLogin, getToken, requireAccessControl } from "../../authConfig";
@@ -54,6 +54,29 @@ export function Component(): JSX.Element {
     const [activeAnalysisPanelTab, setActiveAnalysisPanelTab] = useState<AnalysisPanelTabs | undefined>(undefined);
     const [answer, setAnswer] = useState<ChatAppResponse>();
     const [speechUrls, setSpeechUrls] = useState<(string | null)[]>([]);
+    const speechConfig: SpeechConfig = {
+        speechUrls,
+        setSpeechUrls,
+        audio,
+        isPlaying,
+        setIsPlaying
+    };
+    const onShowCitation = (citation: string) => {
+        if (activeCitation === citation && activeAnalysisPanelTab === AnalysisPanelTabs.CitationTab) {
+            setActiveAnalysisPanelTab(undefined);
+        } else {
+            setActiveCitation(citation);
+            setActiveAnalysisPanelTab(AnalysisPanelTabs.CitationTab);
+        }
+    };
+
+    const onToggleTab = (tab: AnalysisPanelTabs) => {
+        if (activeAnalysisPanelTab === tab) {
+            setActiveAnalysisPanelTab(undefined);
+        } else {
+            setActiveAnalysisPanelTab(tab);
+        }
+    };
 
     const makeApiRequest = async (question: string) => {
         lastQuestionRef.current = question;
@@ -185,6 +208,39 @@ export function Component(): JSX.Element {
                     />
                 </div>
             </div>
+            <div className={styles.askBottomSection}>
+                {isLoading && <Spinner label={t("generatingAnswer")} />}
+                {!isLoading && answer && !error && (
+                    <div className={styles.askAnswerContainer}>
+                        <Answer
+                            answer={answer}
+                            index={0}
+                            speechConfig={speechConfig}
+                            isStreaming={false}
+                            onCitationClicked={x => onShowCitation(x)}
+                            onThoughtProcessClicked={() => onToggleTab(AnalysisPanelTabs.ThoughtProcessTab)}
+                            onSupportingContentClicked={() => onToggleTab(AnalysisPanelTabs.SupportingContentTab)}
+                            showSpeechOutputAzure={showSpeechOutputAzure}
+                            showSpeechOutputBrowser={showSpeechOutputBrowser}
+                        />
+                    </div>
+                )}
+                {error ? (
+                    <div className={styles.askAnswerContainer}>
+                        <AnswerError error={error.toString()} onRetry={() => makeApiRequest(lastQuestionRef.current)} />
+                    </div>
+                ) : null}
+                {activeAnalysisPanelTab && answer && (
+                    <AnalysisPanel
+                        className={styles.askAnalysisPanel}
+                        activeCitation={activeCitation}
+                        onActiveTabChanged={x => onToggleTab(x)}
+                        citationHeight="600px"
+                        answer={answer}
+                        activeTab={activeAnalysisPanelTab}
+                    />
+                )}
+            </div>
             <Panel
                 headerText={t("labels.headerText")}
                 isOpen={isConfigPanelOpen}
@@ -223,8 +279,6 @@ export function Component(): JSX.Element {
                 />
                 {useLogin && <TokenClaimsDisplay />}
             </Panel>
-
-            <h1>Hello testing</h1>
         </div>
     );
 }
