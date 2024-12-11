@@ -7,6 +7,11 @@ import { askApi, configApi, ChatAppResponse, ChatAppRequest, RetrievalMode, Vect
 import { LoginContext } from "../../loginContext";
 import { useTranslation } from "react-i18next";
 import { TokenClaimsDisplay } from "../../components/TokenClaimsDisplay";
+import styles from "../ask/Ask.module.css";
+import { SettingsButton } from "../../components/SettingsButton/SettingsButton";
+import { QuestionInput } from "../../components/QuestionInput";
+import { AnalysisPanel, AnalysisPanelTabs } from "../../components/AnalysisPanel";
+import { Answer, AnswerError } from "../../components/Answer";
 
 export function Component(): JSX.Element {
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
@@ -42,6 +47,67 @@ export function Component(): JSX.Element {
     const client = useLogin ? useMsal().instance : undefined;
     const { loggedIn } = useContext(LoginContext);
     const { t, i18n } = useTranslation();
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const lastQuestionRef = useRef<string>("");
+    const [error, setError] = useState<unknown>();
+    const [activeCitation, setActiveCitation] = useState<string>();
+    const [activeAnalysisPanelTab, setActiveAnalysisPanelTab] = useState<AnalysisPanelTabs | undefined>(undefined);
+    const [answer, setAnswer] = useState<ChatAppResponse>();
+    const [speechUrls, setSpeechUrls] = useState<(string | null)[]>([]);
+
+    const makeApiRequest = async (question: string) => {
+        lastQuestionRef.current = question;
+
+        error && setError(undefined);
+        setIsLoading(true);
+        setActiveCitation(undefined);
+        setActiveAnalysisPanelTab(undefined);
+
+        const token = client ? await getToken(client) : undefined;
+
+        try {
+            const request: ChatAppRequest = {
+                messages: [
+                    {
+                        content: question,
+                        role: "user"
+                    }
+                ],
+                context: {
+                    overrides: {
+                        prompt_template: promptTemplate.length === 0 ? undefined : promptTemplate,
+                        prompt_template_prefix: promptTemplatePrefix.length === 0 ? undefined : promptTemplatePrefix,
+                        prompt_template_suffix: promptTemplateSuffix.length === 0 ? undefined : promptTemplateSuffix,
+                        include_category: includeCategory.length === 0 ? undefined : includeCategory,
+                        exclude_category: excludeCategory.length === 0 ? undefined : excludeCategory,
+                        top: retrieveCount,
+                        temperature: temperature,
+                        minimum_reranker_score: minimumRerankerScore,
+                        minimum_search_score: minimumSearchScore,
+                        retrieval_mode: retrievalMode,
+                        semantic_ranker: useSemanticRanker,
+                        semantic_captions: useSemanticCaptions,
+                        use_oid_security_filter: useOidSecurityFilter,
+                        use_groups_security_filter: useGroupsSecurityFilter,
+                        vector_fields: vectorFieldList,
+                        use_gpt4v: useGPT4V,
+                        gpt4v_input: gpt4vInput,
+                        language: i18n.language,
+                        ...(seed !== null ? { seed: seed } : {})
+                    }
+                },
+                // AI Chat Protocol: Client must pass on any session state received from the server
+                session_state: answer ? answer.session_state : null
+            };
+            const result = await askApi(request, token);
+            setAnswer(result);
+            setSpeechUrls([null]);
+        } catch (e) {
+            setError(e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleSettingsChange = (field: string, value: any) => {
         switch (field) {
@@ -104,6 +170,21 @@ export function Component(): JSX.Element {
 
     return (
         <div>
+            <div className={styles.askTopSection}>
+                <div className={styles.commandsContainer}>
+                    <SettingsButton className={styles.commandButton} onClick={() => setIsConfigPanelOpen(!isConfigPanelOpen)} />
+                </div>
+                <h1 className={styles.askTitle}>{t("askTitle")}</h1>
+                <div className={styles.askQuestionInput}>
+                    <QuestionInput
+                        placeholder={t("gpt4vExamples.placeholder")}
+                        disabled={isLoading}
+                        initQuestion={question}
+                        onSend={question => makeApiRequest(question)}
+                        showSpeechInput={showSpeechInput}
+                    />
+                </div>
+            </div>
             <Panel
                 headerText={t("labels.headerText")}
                 isOpen={isConfigPanelOpen}
