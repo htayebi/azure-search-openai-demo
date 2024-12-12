@@ -98,12 +98,12 @@ export function Component(): JSX.Element {
                 ],
                 context: {
                     overrides: {
-                        prompt_template: promptTemplate.length === 0 ? undefined : promptTemplate,
-                        prompt_template_prefix: promptTemplatePrefix.length === 0 ? undefined : promptTemplatePrefix,
-                        prompt_template_suffix: promptTemplateSuffix.length === 0 ? undefined : promptTemplateSuffix,
-                        include_category: includeCategory.length === 0 ? undefined : includeCategory,
-                        exclude_category: excludeCategory.length === 0 ? undefined : excludeCategory,
-                        top: retrieveCount,
+                        prompt_template: undefined,
+                        prompt_template_prefix: undefined,
+                        prompt_template_suffix: undefined,
+                        include_category: undefined,
+                        exclude_category: undefined,
+                        top: undefined,
                         temperature: temperature,
                         minimum_reranker_score: minimumRerankerScore,
                         minimum_search_score: minimumSearchScore,
